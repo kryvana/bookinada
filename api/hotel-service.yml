@@ -1,0 +1,288 @@
+openapi: 3.0.3
+info:
+  title: Bookinada Hotel Service API
+  description: Search hotels, view hotel details and reserve rooms.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: /api
+    description: Hotel service (base path)
+
+# Default for all operations: a logged-in user is required (FR1).
+# Public operations override this with `security: []`.
+security:
+  - bearerAuth: []
+
+paths:
+  /hotels:
+    get:
+      summary: Lists all available hotels matching search criteria.
+      operationId: searchHotels
+      security: []
+      parameters:
+        - name: location
+          in: query
+          required: true
+          schema:
+            type: string
+          example: Lisbon
+        - name: checkIn
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: '2026-12-20'
+        - name: checkOut
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: '2026-12-23'
+        - name: numGuests
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 2
+        - name: numRooms
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        '200':
+          description: Successful response (empty array if no hotels match).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Hotel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /hotels/{hotelId}:
+    parameters:
+      - $ref: '#/components/parameters/HotelId'
+    get:
+      summary: Retrieves detailed information about a specific hotel.
+      operationId: getHotelDetails
+      security: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hotel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /hotels/{hotelId}/reservations:
+    parameters:
+      - $ref: '#/components/parameters/HotelId'
+    post:
+      summary: Creates a reservation for rooms at a selected hotel after verifying room availability for the requested dates.
+      operationId: createHotelReservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HotelReservationRequest'
+      responses:
+        '201':
+          description: Reservation created
+          headers:
+            Location:
+              description: URL of the newly created reservation.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HotelReservation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Insufficient rooms available for the requested dates (overlapping reservation).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Invalid request values (e.g. checkOut is not after checkIn).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    HotelId:
+      name: hotelId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: HO789
+
+  schemas:
+    Hotel:
+      type: object
+      required: [id, name, location, pricePerNight, availableRooms]
+      properties:
+        id:
+          type: string
+          example: HO789
+        name:
+          type: string
+          example: Hotel Avenida
+        location:
+          type: string
+          example: Lisbon
+        pricePerNight:
+          type: number
+          format: double
+          description: Price per room per night.
+          example: 120.00
+        availableRooms:
+          type: integer
+          minimum: 0
+          example: 5
+
+    GuestDetails:
+      type: object
+      required: [firstName, lastName]
+      properties:
+        firstName:
+          type: string
+          example: Jane
+        lastName:
+          type: string
+          example: Doe
+
+    HotelReservationRequest:
+      type: object
+      required: [checkIn, checkOut, numGuests, numRooms, guestDetails]
+      properties:
+        checkIn:
+          type: string
+          format: date
+          example: '2026-12-20'
+        checkOut:
+          type: string
+          format: date
+          example: '2026-12-23'
+        numGuests:
+          type: integer
+          minimum: 1
+          example: 2
+        numRooms:
+          type: integer
+          minimum: 1
+          example: 1
+        guestDetails:
+          $ref: '#/components/schemas/GuestDetails'
+
+    HotelReservation:
+      type: object
+      required: [reservationId, hotelId, checkIn, checkOut, numGuests, numRooms, guestDetails, totalPrice]
+      properties:
+        reservationId:
+          type: string
+          example: RE457
+        hotelId:
+          type: string
+          example: HO789
+        checkIn:
+          type: string
+          format: date
+          example: '2026-12-20'
+        checkOut:
+          type: string
+          format: date
+          example: '2026-12-23'
+        numGuests:
+          type: integer
+          example: 2
+        numRooms:
+          type: integer
+          example: 1
+        guestDetails:
+          $ref: '#/components/schemas/GuestDetails'
+        totalPrice:
+          type: number
+          format: double
+          example: 360.00
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: ROOMS_UNAVAILABLE
+        message:
+          type: string
+          example: No rooms available for the requested dates.
+
+  responses:
+    BadRequest:
+      description: Missing or malformed request data.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing or invalid authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Hotel ID does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnprocessableEntity:
+      description: Invalid request values.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
