@@ -1,0 +1,275 @@
+openapi: 3.0.3
+info:
+  title: Bookinada Flight Service API
+  description: Search flights, view flight details and reserve seats on a flight.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: /api
+    description: Flight service (base path)
+
+# Default for all operations: a logged-in user is required (FR1).
+# Public operations override this with `security: []`.
+security:
+  - bearerAuth: []
+
+paths:
+  /flights:
+    get:
+      summary: Lists all available flights matching search criteria.
+      operationId: searchFlights
+      security: []
+      parameters:
+        - name: origin
+          in: query
+          required: true
+          description: IATA code of the departure airport.
+          schema:
+            type: string
+          example: MUC
+        - name: destination
+          in: query
+          required: true
+          description: IATA code of the arrival airport.
+          schema:
+            type: string
+          example: LIS
+        - name: departureDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: '2026-12-20'
+        - name: numPassengers
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 2
+      responses:
+        '200':
+          description: Successful response (empty array if no flights match).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Flight'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /flights/{flightId}:
+    parameters:
+      - $ref: '#/components/parameters/FlightId'
+    get:
+      summary: Retrieves detailed information about a specific flight.
+      operationId: getFlightDetails
+      security: []
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Flight'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /flights/{flightId}/reservations:
+    parameters:
+      - $ref: '#/components/parameters/FlightId'
+    post:
+      summary: Creates a reservation for a selected flight after verifying seat availability.
+      operationId: createFlightReservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlightReservationRequest'
+      responses:
+        '201':
+          description: Reservation created
+          headers:
+            Location:
+              description: URL of the newly created reservation.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightReservation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Insufficient seats available or duplicate reservation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    FlightId:
+      name: flightId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: FL123
+
+  schemas:
+    Flight:
+      type: object
+      required: [id, flightNumber, origin, destination, departureTime, price, availableSeats]
+      properties:
+        id:
+          type: string
+          example: FL123
+        flightNumber:
+          type: string
+          example: LH1790
+        origin:
+          type: string
+          example: MUC
+        destination:
+          type: string
+          example: LIS
+        departureTime:
+          type: string
+          format: date-time
+        arrivalTime:
+          type: string
+          format: date-time
+        price:
+          type: number
+          format: double
+          description: Price per passenger.
+          example: 400.00
+        availableSeats:
+          type: integer
+          minimum: 0
+          example: 42
+
+    Passenger:
+      type: object
+      required: [firstName, lastName]
+      properties:
+        firstName:
+          type: string
+          example: Jane
+        lastName:
+          type: string
+          example: Doe
+
+    FlightReservationRequest:
+      type: object
+      required: [passengers]
+      properties:
+        passengers:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Passenger'
+
+    ReservedPassenger:
+      allOf:
+        - $ref: '#/components/schemas/Passenger'
+        - type: object
+          required: [passengerId, seat]
+          properties:
+            passengerId:
+              type: integer
+              example: 1
+            seat:
+              type: string
+              example: 13A
+
+    FlightReservation:
+      type: object
+      required: [reservationId, flightId, passengers, totalPrice]
+      properties:
+        reservationId:
+          type: string
+          example: RE456
+        flightId:
+          type: string
+          example: FL123
+        passengers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReservedPassenger'
+        totalPrice:
+          type: number
+          format: double
+          example: 800.00
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: INSUFFICIENT_SEATS
+        message:
+          type: string
+          example: Only 1 seat left on flight FL123.
+
+  responses:
+    BadRequest:
+      description: Missing or malformed request data.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing or invalid authentication token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Flight ID does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnprocessableEntity:
+      description: Invalid request values.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
