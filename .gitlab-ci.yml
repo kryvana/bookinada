@@ -55,7 +55,7 @@ flight-package:
 
 
 # -------------------------
-# HOTEL SERVICE
+# HOTEL SERVICE.
 # -------------------------
 
 hotel-compile:
@@ -87,3 +87,4 @@ hotel-package:
     - ./mvnw package -DskipTests -B
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
