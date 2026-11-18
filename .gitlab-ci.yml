@@ -32,6 +32,7 @@ flight-compile:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
+
 flight-test:
   stage: test
   image: maven:3.9-eclipse-temurin-21
@@ -41,6 +42,13 @@ flight-test:
     - ./mvnw test -B
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  artifacts:
+    name: "flight test artifacts"
+    when: always
+    paths:
+      - flight-service/target/surefire-reports/
+    reports:
+      junit: flight-service/target/surefire-reports/TEST-*.xml
 
 flight-package:
   stage: package
@@ -51,6 +59,10 @@ flight-package:
     - ./mvnw package -DskipTests -B
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  artifacts:
+    name: "flight jar artifacts"
+    paths:
+      - flight-service/target/*.jar
 
 
 # -------------------------
@@ -76,6 +88,13 @@ hotel-test:
     - ./mvnw test -B
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  artifacts:
+    name: "hotel test artifacts"
+    when: always #per default only saves successes
+    paths:
+      - hotel-service/target/surefire-reports/
+    reports:
+      junit: hotel-service/target/surefire-reports/TEST-*.xml
 
 hotel-package:
   stage: package
@@ -86,3 +105,7 @@ hotel-package:
     - ./mvnw package -DskipTests -B
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  artifacts:
+    name: "hotel jar artifacts"
+    paths:
+      - hotel-service/target/*.jar
