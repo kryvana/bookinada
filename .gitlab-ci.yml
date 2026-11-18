@@ -16,6 +16,7 @@ validate-openapi:
     - redocly lint api/flight-service.yml api/hotel-service.yml
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 
 
 # -------------------------
