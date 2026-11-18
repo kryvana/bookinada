@@ -17,5 +17,5 @@ public class ArchitectureTest {
             noClasses()
                     .that().resideInAPackage("..controller..")
                     .should().dependOnClassesThat()
-                    .resideInAPackage("..persistence..");
+                    .resideInAPackage("..repository..");
 }
