@@ -4,6 +4,10 @@ stages:
   - test
   - package
 
+.default-rules: &default-rules
+  - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
 # -------------------------
 # OPENAPI VALIDATION
 # -------------------------
@@ -14,9 +18,7 @@ validate-openapi:
   script:
     - npm install --global @redocly/cli
     - redocly lint api/flight-service.yml api/hotel-service.yml
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  rules: *default-rules
 
 
 # -------------------------
@@ -30,8 +32,7 @@ flight-compile:
     - cd flight-service
     - chmod +x mvnw
     - ./mvnw clean compile -B
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  rules: *default-rules
 
 
 flight-test:
@@ -41,8 +42,7 @@ flight-test:
     - cd flight-service
     - chmod +x mvnw
     - ./mvnw test -B
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  rules: *default-rules
   artifacts:
     name: "flight test artifacts"
     when: always
@@ -58,8 +58,7 @@ flight-package:
     - cd flight-service
     - chmod +x mvnw
     - ./mvnw package -DskipTests -B
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  rules: *default-rules
   artifacts:
     name: "flight jar artifacts"
     paths:
@@ -77,8 +76,7 @@ hotel-compile:
     - cd "hotel-service"
     - chmod +x mvnw
     - ./mvnw clean compile -B
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  rules: *default-rules
 
 hotel-test:
   stage: test
@@ -87,8 +85,7 @@ hotel-test:
     - cd "hotel-service"
     - chmod +x mvnw
     - ./mvnw test -B
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  rules: *default-rules
   artifacts:
     name: "hotel test artifacts"
     when: always #per default only saves successes
@@ -104,8 +101,7 @@ hotel-package:
     - cd "hotel-service"
     - chmod +x mvnw
     - ./mvnw package -DskipTests -B
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+  rules: *default-rules
   artifacts:
     name: "hotel jar artifacts"
     paths:
